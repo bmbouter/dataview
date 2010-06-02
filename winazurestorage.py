@@ -14,16 +14,20 @@ import sys
 import os
 from xml.dom import minidom #TODO: Use a faster way of processing XML
 import re
-from urllib2 import Request, urlopen, URLError
+from urllib2 import Request, urlopen, URLError, quote
 from urlparse import urlsplit
 from datetime import datetime, timedelta
-import core
-log = core.log.getLogger()
+#import core
+#log = core.log.getLogger()
 import dataview_settings as dvsettings 
 
+import xml.dom.minidom
+import xml.etree.ElementTree as ET
+import exceptions
 DEVSTORE_BLOB_HOST = dvsettings.DEVSTORE_BLOB_HOST
 DEVSTORE_ACCOUNT = dvsettings.DEVSTORE_ACCOUNT
 DEVSTORE_SECRET_KEY = dvsettings.DEVSTORE_SECRET_KEY
+CLOUD_TABLE_HOST = "table.core.windows.net"
 
 PREFIX_PROPERTIES = "x-ms-prop-"
 PREFIX_METADATA = "x-ms-meta-"
@@ -34,7 +38,11 @@ NEW_LINE = "\x0A"
 DEBUG = False
  
 TIME_FORMAT ="%a, %d %b %Y %H:%M:%S %Z"
- 
+
+def _get_store():
+    store = TableStorage(CLOUD_TABLE_HOST, DEVSTORE_ACCOUNT, DEVSTORE_SECRET_KEY)
+    return store
+
 def create_entry_xml(properties_dict):
     root = ET.Element('entry')
     root.set("xmlns","http://www.w3.org/2005/Atom")
@@ -52,7 +60,7 @@ def create_entry_xml(properties_dict):
         p = properties_dict[k]
         property = ET.SubElement(properties,'d:'+k)
         if isinstance(p,str):
-            property.text = p[0]
+            property.text = p
         elif len(p) == 2:
             property.set('m:type',p[0])
             property.text = p[1]
@@ -107,9 +115,9 @@ class SharedKeyCredentials(object):
         if not for_tables:
             string_to_sign += canonicalized_headers + NEW_LINE # Canonicalized headers
         string_to_sign += canonicalized_resource # Canonicalized resource
-        log.debug("-----top-------")
-        log.debug(canonicalized_headers)
-        log.debug("_____bot_______")
+        #log.debug("-----top-------")
+        #log.debug(canonicalized_headers)
+        #log.debug("_____bot_______")
         request.add_header('Authorization', 'SharedKey ' + self._account + ':' + base64.encodestring(hmac.new(self._key, unicode(string_to_sign).encode("utf-8"), hashlib.sha256).digest()).strip())
         return request
  
@@ -220,7 +228,42 @@ class TableStorage(Storage):
 will only work against cloud storage.'''
     def __init__(self, host, account_name, secret_key, use_path_style_uris = None):
         super(TableStorage, self).__init__(host, account_name, secret_key, use_path_style_uris)
- 
+
+    def query(self, table_name, querystring):
+        querystring = quote(querystring)
+        reqUrl = "%s/%s()?$filter=%s" % (self.get_base_url(), table_name, querystring)
+        response = self.check_request_for_error(self._credentials.sign_table_request(Request(reqUrl)))
+        dom = minidom.parseString(response.read())
+        entries = dom.getElementsByTagName("entry")
+        entities = []
+        #log.debug(entries)
+        for k,entry in enumerate(entries):
+            if k == 0:
+                schema = self._get_schema(entry)
+            entity = self._parse_entity(entry)
+            entities.append(entity)
+        dom.unlink()
+        return (entities,schema)
+
+    def check_request_for_error(self, req):
+        try:
+            #log.debug("Checking request for error.")
+            response = urlopen(req)
+        except URLError, e:
+            if hasattr(e, 'reason'):
+                #return HTTPError(request.url, 404, ', hdrs, fp)
+                #log.debug('We failed to reach a server.')
+                #print 'Reason: ', e.reason
+                return e
+            elif hasattr(e, 'code'):
+                #log.debug('The server couldn\'t fulfill the request.')
+                #print 'Error code: ', e.code
+                #log.debug(e.code)
+                return e
+        else:
+            #log.debug("No URLError")
+            return response
+
     def create_table(self, name):
         data = """<?xml version="1.0" encoding="utf-8" standalone="yes"?>
 <entry xmlns:d="http://schemas.microsoft.com/ado/2007/08/dataservices" xmlns:m="http://schemas.microsoft.com/ado/2007/08/dataservices/metadata" xmlns="http://www.w3.org/2005/Atom">
@@ -236,7 +279,7 @@ will only work against cloud storage.'''
 </m:properties>
 </content>
 </entry>""" % (time.strftime("%Y-%m-%dT%H:%M:%S.000Z", time.gmtime()), name)
-        log.debug(data)
+        #log.debug(data)
         req = RequestWithMethod("POST", "%s/Tables" % self.get_base_url(), data=data)
         req.add_header("Content-Length", "%d" % len(data))
         req.add_header("Content-Type", "application/atom+xml")
@@ -248,8 +291,10 @@ will only work against cloud storage.'''
             return e
 
     def insert_entry(self,name,data):
-        log.debug(data)
-        log.debug(("%s/%s") % (self.get_base_url(), name))
+        data = create_entry_xml(data)
+        print data
+        #log.debug(data)
+        #log.debug(("%s/%s") % (self.get_base_url(), name))
         req = RequestWithMethod("POST", "%s/%s" % (self.get_base_url(), name),data=data)
         req.add_header("Content-Length", "%d" % len(data))
         req.add_header("Content-Type", "application/atom+xml")
@@ -265,11 +310,12 @@ will only work against cloud storage.'''
     def delete_table(self, name):
         req = RequestWithMethod("DELETE", "%s/Tables('%s')" % (self.get_base_url(), name))
         self._credentials.sign_table_request(req)
-        try:
+        return self.check_request_for_error(req)
+        '''try:
             response = urlopen(req)
             return response.code
         except URLError, e:
-            return e.code
+            return e.code'''
  
     def list_tables(self):
         req = Request("%s/Tables" % self.get_base_url())
@@ -285,41 +331,64 @@ will only work against cloud storage.'''
         dom.unlink()'''
 
     def get_entity(self, table_name, partition_key, row_key):
-        try:
-            return urlopen(self._credentials.sign_table_request(Request("%s/%s(PartitionKey='%s',RowKey='%s')" % (self.get_base_url(), table_name, partition_key, row_key)))).read()
- 
-        except URLError, e:
-            return e.read()
-        '''dom = minidom.parseString(urlopen(self._credentials.sign_table_request(Request("%s/%s(PartitionKey='%s',RowKey='%s')" % (self.get_base_url(), table_name, partition_key, row_key)))).read())
+        dom = minidom.parseString(urlopen(self._credentials.sign_table_request(Request("%s/%s(PartitionKey='%s',RowKey='%s')" % (self.get_base_url(), table_name, partition_key, row_key)))).read())
         entity = self._parse_entity(dom.getElementsByTagName("entry")[0])
         dom.unlink()
-        return entity'''
- 
-    def _parse_entity(self, entry):
-        entity = TableEntity()
+        return entity
+    
+    def _get_schema(self,entry):
+        schema = {}
         for property in (p for p in entry.getElementsByTagName("m:properties")[0].childNodes if p.nodeType == minidom.Node.ELEMENT_NODE):
-            key = property.tagName[2:]
+            key = property.tagName[2:].encode('utf-8')
             if property.hasAttribute('m:type'):
                 t = property.getAttribute('m:type')
-                if t.lower() == 'edm.datetime': value = parse_edm_datetime(property.firstChild.data)
-                elif t.lower() == 'edm.int32': value = parse_edm_int32(property.firstChild.data)
-                elif t.lower() == 'edm.boolean': value = parse_edm_boolean(property.firstChild.data)
-                elif t.lower() == 'edm.double': value = parse_edm_double(property.firstChild.data)
-                else: raise Exception(t.lower())
-            else: value = property.firstChild is not None and property.firstChild.data or None
-            setattr(entity, key, value)
-        return entity
- 
-    def get_all(self, table_name):
-        return urlopen(self._credentials.sign_table_request(Request("%s/%s" % (self.get_base_url(), table_name)))).read()
+                if t.lower() == 'edm.datetime':
+                    t = 'datetime'
+                elif t.lower() == 'edm.int32': 
+                    t = 'number'
+                elif t.lower() == 'edm.boolean':
+                    t = 'boolean'
+                elif t.lower() == 'edm.double':
+                    t = 'number'
+                else: 
+                    raise Exception(t.lower())
+            else: 
+                t = 'string'
+            schema[key] = t
+        return schema
 
-        '''dom = minidom.parseString(urlopen(self._credentials.sign_table_request(Request("%s/%s" % (self.get_base_url(), table_name)))).read())
+    def _parse_entity(self, entry):
+        entity = {}
+        for property in (p for p in entry.getElementsByTagName("m:properties")[0].childNodes if p.nodeType == minidom.Node.ELEMENT_NODE):
+            key = property.tagName[2:].encode('utf-8')
+            if property.hasAttribute('m:type'):
+                t = property.getAttribute('m:type')
+                if t.lower() == 'edm.datetime':
+                    value = parse_edm_datetime(property.firstChild.data)
+                elif t.lower() == 'edm.int32': 
+                    value = parse_edm_int32(property.firstChild.data)
+                elif t.lower() == 'edm.boolean':
+                    value = parse_edm_boolean(property.firstChild.data)
+                elif t.lower() == 'edm.double':
+                    value = parse_edm_double(property.firstChild.data)
+                else: 
+                    raise Exception(t.lower())
+            else: 
+                value = property.firstChild is not None and property.firstChild.data or None
+                value = value.encode('utf-8')
+            entity[key] = value
+        
+        return entity
+    
+
+    def get_all(self, table_name):
+        dom = minidom.parseString(urlopen(self._credentials.sign_table_request(Request("%s/%s" % (self.get_base_url(), table_name)))).read())
         entries = dom.getElementsByTagName("entry")
         entities = []
         for entry in entries:
             entities.append(self._parse_entity(entry))
         dom.unlink()
-        return entities'''
+        return entities
  
 class BlobStorage(Storage):
     def __init__(self, host = DEVSTORE_BLOB_HOST, account_name = DEVSTORE_ACCOUNT, secret_key = DEVSTORE_SECRET_KEY, use_path_style_uris = None):

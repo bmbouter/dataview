@@ -1,3 +1,5 @@
+
+import dataview_client as dvclient
 '''
 Properties are a dictionary where keys are property names and values can be either strings
 or tuples in the form of ("type","value") where type is one of the Azure supported types:
@@ -12,19 +14,22 @@ Edm.Int64      64-bit integer.
 Edm.String     UTF-16-encoded value. String values may be up to 64 KB in size.
 
 Every entry must contain PartitionKey and RowKey. Both have to be strings.
-'''
-import dataview_client as dvclient
 
 props = {"Double":("Edm.Double","33.33"),"Address": "Cary","PartitionKey":"p","RowKey":"4"}
 client = dvclient.DVClient("https://opus-dev.cnl.ncsu.edu:9001","dennis")
 test_table = "TestTable2"
 
-print client.create_table(test_table)
+resp = client.create_table(test_table)
+print "type of response:"
+print type(resp)
+print resp
 
 print client.insert(test_table, props)
 
 for k in client.get_all_from_table(test_table):
     print k.Address
-
-
+'''
+client = dvclient.DVClient("https://opus-dev.cnl.ncsu.edu:9004","dennis")
+#print client.list_tables()
+print client.delete_table("TestTable1")
 #print dir(client.get_all_from_table(test_table))

@@ -19,6 +19,14 @@ class RequestWithMethod(Request):
 
     def get_method(self):
         return self._method
+ 
+class DataviewException(exceptions.Exception):
+    def __init__(self, message):
+        self.value = message
+        return
+
+    def __str__(self):
+        return self.value
 
 class BadPropertyException(exceptions.Exception):
     def __init__(self):
@@ -53,7 +61,7 @@ class DVClient():
         self.username = username
         self.opus_uri = opus_uri
 
-    def create_entry_xml(self,properties_dict):
+    def _create_entry_xml(self,properties_dict):
         root = ET.Element('entry')
         root.set("xmlns","http://www.w3.org/2005/Atom")
         root.set("xmlns:m","http://schemas.microsoft.com/ado/2007/08/dataservices/metadata")
@@ -83,9 +91,26 @@ class DVClient():
         req = RequestWithMethod("POST", "%s/dataview/create/%s/" % (self.opus_uri, table_name))
         req.add_header("Content-Length", "0")
         try:
-            return urlopen(req).read()
+            response = urlopen(req)
+            if response.code != 201:
+                raise DataviewException(response.read())
+            return true
         except URLError, e:
-            return e.read()
+            raise DataviewException(e.reason)
+
+    def delete_table(self, table_name):
+        req = RequestWithMethod("DELETE", "%s/dataview/%s/" % (self.opus_uri, table_name))
+        req.add_header("Content-Length", "0")
+        try:
+            response = urlopen(req)
+        except URLError, e:
+            if hasattr(e, 'reason'):
+                raise DataviewException("Failed to reach server: "+e.reason)
+            elif hasattr(e, 'code'):
+                raise DataviewException("Server couldn't fulfull the request.\nError code: "+str(e.code))
+        else:
+            print response.code
+            return True
 
     def list_tables(self):
         pass
@@ -120,8 +145,8 @@ class DVClient():
         except URLError, e:
             return e
 
-    def insert(self, table_name, props):
-        data = self.create_entry_xml(props)
+    def insert_entry(self, table_name, props):
+        data = self._create_entry_xml(props)
         req = RequestWithMethod("POST", "%s/dataview/%s/insert/" % (self.opus_uri, table_name), data=data)
         req.add_header("Content-Length", "%d" % len(data))
         req.add_header("Content-Type", "application/xml")
@@ -131,6 +156,14 @@ class DVClient():
         except URLError, e:
             return e.read()
 
+    def delete_entry(self, partition_key, row_key):
+        pass
+        
     def get_entry(self, table_name, row_key, partition_key):
         pass
+
+    def query(self, query_string):
+        pass
+
+
 
