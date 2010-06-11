@@ -1,0 +1,75 @@
+<html>
+  <head>
+    <script type="text/javascript" src="http://www.google.com/jsapi"></script>
+    <script type="text/javascript">
+    google.load("visualization", "1", {packages:["map"]});
+    
+    // Set a callback to run when the API is loaded.
+    google.setOnLoadCallback(mapInit);
+
+    // Send the query to the data source.
+    function mapInit() {
+
+        // Specify the data source URL.
+        var query = new google.visualization.Query('https://spreadsheets.google.com/tq?key=0AoX3D_W26UJsdFJBUkZrN3FYZWFtQktOTDYyZzdpUFE&range=A2:B5');
+        // Send the query with a callback function.
+        query.send(handleMapQueryResponse);
+      }
+    var map;
+    var data;
+
+    // Handle the query response.
+    function handleMapQueryResponse(response) {
+        if (response.isError()) {
+            alert('Error in query: ' + response.getMessage() + ' ' + response.getDetailedMessage());
+            return;
+        }
+
+        // Draw the visualization.
+        data = response.getDataTable();
+    
+        // Instantiate and draw our chart, passing in some options.
+        map = new google.visualization.Map(document.getElementById('chart_div'));
+        map.draw(data, {showTip:true,mapType:'normal'});
+        google.visualization.events.addListener(map, 'select', function() {loadTable();});
+    }
+
+    function loadTable() {
+        google.load('visualization', '1', {'packages':['table'], 'callback':init});
+    }
+
+    function init() {
+        var selection = map.getSelection()[0];
+        //alert(data.getColumnLabel(0))
+        //alert(data.getRowProperty(selection.row,'sensorId'))
+        var id = data.getFormattedValue(selection.row,1); 
+        var url = 'https://spreadsheets.google.com/tq?key=0AoX3D_W26UJsdFJBUkZrN3FYZWFtQktOTDYyZzdpUFE&range=A8:C12&tq=select%20B%2CC%20where%20A%20%3D%20' + id
+        //alert(url)
+        var query = new google.visualization.Query(url);
+        query.send(handleQueryResponse);
+    }
+
+    // Handle the query response.
+    function handleQueryResponse(response) {
+        if (response.isError()) {
+            alert('Error in query: ' + response.getMessage() + ' ' + response.getDetailedMessage());
+            return;
+        }
+
+        // Draw the visualization.
+        var data2 = response.getDataTable();
+        // Instantiate and draw our chart, passing in some options.
+        var chart = new google.visualization.Table(document.getElementById('table_div'));
+        chart.draw(data2, {showRowNumber: false});
+    }
+
+    </script>
+  </head>
+
+  <body>
+    <div id="chart_div" style="width: 600px; height: 600px"></div>
+    <div id="table_div" style="width: 600px;"></div>
+  </body>
+
+</html>
+

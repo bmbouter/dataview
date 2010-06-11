@@ -1,0 +1,24 @@
+{% block content %}
+    
+    {% if visualizations %}
+        <table border="1">
+            <tr>
+                <th>Visualizations:</th>
+            </tr>
+            {% for viz in visualizations %}
+                <tr>
+                <td>
+                <a href="/dataview/mapvisualization/{{viz.pk}}">{{viz}}</a>
+                </td>
+                <td>
+                <a href="/dataview/mapvisualization/{{viz.pk}}/chart/">Render</a>
+                </td>
+                </tr>
+            {% endfor %}
+        </table> 
+
+    {% else %}
+        <p>No results returned by query. <a href="/dataview/viz/">Create Visualization</a></p>
+    {% endif %}
+
+{% endblock %}

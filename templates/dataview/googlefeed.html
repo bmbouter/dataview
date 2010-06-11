@@ -1,0 +1,41 @@
+
+{% block content %}
+<html>
+<head>
+    <title>Getting Started Example</title>
+    <!--Load the AJAX API-->
+    <script type="text/javascript" src="http://www.google.com/jsapi"></script>
+    <script type="text/javascript">
+
+    google.load('visualization', '1', {'packages':['table']});
+    google.setOnLoadCallback(init);
+
+    function init() {
+        var url = 'https://spreadsheets.google.com/tq?key=0AoX3D_W26UJsdFJBUkZrN3FYZWFtQktOTDYyZzdpUFE&range=A8:C12&tq=select%20B%2CC%20where%20A%20%3D%203'
+        var query = new google.visualization.Query(url);
+        query.send(handleQueryResponse);
+    }
+
+    // Handle the query response.
+    function handleQueryResponse(response) {
+        if (response.isError()) {
+            alert('Error in query: ' + response.getMessage() + ' ' + response.getDetailedMessage());
+        return;
+    }
+
+    // Draw the visualization.
+    var data = response.getDataTable();
+    // Instantiate and draw our chart, passing in some options.
+    var chart = new google.visualization.Table(document.getElementById('chart_div'));
+    chart.draw(data, {showRowNumber: true});
+  }
+  </script>
+</head>
+
+  <body>
+    <!--Div that will hold the pie chart-->
+    <div id="chart_div"></div>
+  </body>
+</html>
+
+{% endblock %}

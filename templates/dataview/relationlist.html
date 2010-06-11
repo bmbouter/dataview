@@ -1,0 +1,26 @@
+{% block content %}
+    
+    {% if relations %}
+        <table border="1">
+            <tr>
+                <th>Relations:</th>
+            </tr>
+            {% for relation in relations %}
+                <tr>
+                <td>
+                <a href="/dataview/relation/{{relation.pk}}">{{relation}}</a>
+                </td>
+                <td>
+                    <form method='post' action='{{action}}{{relation.pk}}/'>{% csrf_token %}
+                        <input type="submit" name="delete" value="Delete">
+                    </form>
+                </td>
+                </tr>
+            {% endfor %}
+        </table> 
+
+    {% else %}
+        <p>No results returned by query. <a href="/dataview/relation/">Create Relation</a></p>
+    {% endif %}
+
+{% endblock %}

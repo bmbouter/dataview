@@ -18,6 +18,8 @@ BACKEND_CHOICES = (
     (2,"MS Windows Azure Table Services"),
 )
 
+
+
 class  DataBackend(models.Model):
     user = models.ForeignKey(User)
     name = models.CharField(max_length=255)
@@ -62,4 +64,20 @@ class Visualization(models.Model):
 
     def __str__(self):
         return smart_str("%s" % self.name)
+
+class MapVisualization(Visualization):
+    select = models.ForeignKey(Visualization, related_name='relatedToMapVisualization', null=True)
+    
+class TableVisualization(Visualization):
+    select = models.ForeignKey(Visualization, related_name='relatedToTableVisualization', null=True)
+
+class Relation(models.Model):
+    user = models.ForeignKey(User)
+    table_a = models.ForeignKey(DataView, related_name='relation_a')
+    table_b = models.ForeignKey(DataView, related_name='relation_b')
+    field_a = models.CharField("Column in A", max_length=255)
+    field_b = models.CharField("Column in B", max_length=255)
+
+    def __str__(self):
+        return smart_str("Column %s from table %s && Column %s from table %s" % (self.field_a, self.table_a, self.field_b,self.table_b))
 

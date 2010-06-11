@@ -1,0 +1,26 @@
+{% block content %}
+    
+    {% if dataviews %}
+        <table border="1">
+            <tr>
+                <th>Dataviews:</th>
+            </tr>
+            {% for dv in dataviews %}
+                <tr>
+                <td>
+                <a href="/dataview/dataview/{{dv.pk}}">{{dv}}</a>
+                </td>
+                <td>
+                    <form method='post' action='{{action}}{{dv.pk}}/'>{% csrf_token %}
+                        <input type="submit" name="delete" value="Delete">
+                    </form>
+                </td>
+                </tr>
+            {% endfor %}
+        </table> 
+
+    {% else %}
+        <p>No results returned by query. <a href="/dataview/dataview/">Create DataView</a></p>
+    {% endif %}
+
+{% endblock %}

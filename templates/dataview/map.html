@@ -1,0 +1,38 @@
+<html>
+  <head>
+    <script type="text/javascript" src="http://www.google.com/jsapi"></script>
+    <script type="text/javascript">
+      google.load("visualization", "1", {packages:["map"]});
+  // Set a callback to run when the API is loaded.
+      google.setOnLoadCallback(init);
+
+  // Send the query to the data source.
+      function init() {
+
+    // Specify the data source URL.
+        var query = new google.visualization.Query('https://opus-dev.cnl.ncsu.edu:9004/dataview/data/{{dataview}}');
+
+    // Send the query with a callback function.
+        query.send(handleQueryResponse);
+      }
+
+  // Handle the query response.
+    function handleQueryResponse(response) {
+        if (response.isError()) {
+            alert('Error in query: ' + response.getMessage() + ' ' + response.getDetailedMessage());
+        return;
+    }
+
+    // Draw the visualization.
+    var data = response.getDataTable();
+    // Instantiate and draw our chart, passing in some options.
+    var chart = new google.visualization.Map(document.getElementById('chart_div'));
+    chart.draw(data, {showTip: true});
+  }
+    </script>
+  </head>
+
+  <body>
+    <div id="chart_div" style="width: 400px; height: 300px"></div>
+  </body>
+</html>

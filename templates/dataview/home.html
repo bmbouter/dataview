@@ -1,0 +1,31 @@
+{% extends "dataview/base.html" %}
+{% block title %}DataView Home{% endblock %}
+
+{% block head %}
+<link rel="stylesheet" type="text/css" href="/media/admin/css/base.css" /> 
+<link rel="stylesheet" type="text/css" href="/media/admin/css/forms.css" /> 
+
+{% endblock %}
+
+{% block content %}
+        <table border="1">
+	<tr><td>
+    {% if has_views %}
+	<a href="dataview/all/">My DataViews</a>
+    {% endif %}
+	</td>
+	<td>
+    {% if has_viz %}
+	<a href="visualization/all/">My Visualizations</a>
+    {% endif %}
+	</td></tr>
+	<tr><td>
+	<a href="dataview/">Create DataView<a>
+	</td><td>
+    {% if has_views %}
+	<a href="visualization/">Create Visualization</a>
+    {% endif %}
+  	</td></tr>
+        </table> 
+
+{% endblock %}

@@ -1,0 +1,35 @@
+{% block content %}
+    
+    {% if google %}
+        <table border="1">
+            <tr>
+                <th>Google Data Backends:</th>
+            </tr>
+            {% for gbe in google %}
+                <tr>
+                <td>
+                <a href="/dataview/backend/google/{{gbe.pk}}">{{gbe}}</a>
+                </td>
+                </tr>
+            {% endfor %}
+        </table>
+    {% endif %}
+    <br>
+    {% if azure %}
+        <table border="1">
+            <tr>
+                <th>Azure Data Backends:</th>
+            </tr>
+            {% for abe in azure %}
+                <tr>
+                <td>
+                <a href="/dataview/backend/azure/{{abe.pk}}">{{abe}}</a>
+                </td>
+                </tr>
+            {% endfor %}
+        </table> 
+    {% endif %}
+    <br>
+    <a href="/dataview/backend/">Add Data Backend</a></p>
+
+{% endblock %}
